@@ -6,8 +6,7 @@
 
 ## How to Run
 ```
-git clone https://github.com/matthew55/artix-openrc-install
-cd artix-openrc-install
+curl -L shorturl.at/pK045 -o install.sh
 chmod +x ./install.sh
 ./install.sh
 ```

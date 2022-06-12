@@ -31,14 +31,14 @@ partition_device() {
 
 partition_bios() {
     echo -n "Partitioning drive..."
-    SWAP_PARTITION="n 1 _ +4G"
-    ROOT_PARTITION="n 2 _ _"
+    SWAP_PARTITION="n p 1 _ +4G"
+    ROOT_PARTITION="n p 2 _ _"
     
-    SWAP_TYPE="t 1 19"
-    ROOT_TYPE="t 2 20"
+    SWAP_TYPE="t 1 82"
+    ROOT_TYPE="t 2 83"
 
     FDISK_INSTRUCTIONS="
-        g
+        o
         $SWAP_PARTITION
         $ROOT_PARTITION
         $SWAP_TYPE
@@ -153,11 +153,11 @@ base_configure() {
 setup_grub() {
     echo -n "Setting up grub..."
     if [ -n $BIOS ]; then
-        grub-install --recheck /dev/$DRIVE
+        artix-chroot /mnt grub-install --recheck /dev/$DRIVE
     else 
-        grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
+        artix-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=GRUB
     fi
-    grub-mkconfig -o /boot/grub/grub.cfg
+    artix-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
     echo "done"
 }
 
