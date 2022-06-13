@@ -2,7 +2,8 @@
 # Install script for Artix linux with Openrc as an init system.
 # Created on June 11, 2022
 
-set -xe
+# Exit on command failure. Add x to debug.
+set -e
 
 ## User Info
 get_info() {
@@ -114,21 +115,9 @@ base_configure() {
     echo -n "Setting time zone..."
     ln -sf /usr/share/zoneinfo/America/Indianapolis /etc/localtime
     hwclock --systohc
-    echo "done"
-
-    echo -n "Configuring pacman settings..."
-    curl https://archlinux.org/mirrorlist/all/ -o /mnt/etc/pacman.d/mirrorlist-arch
-    grep "s/#Color/Color/" /mnt/etc/pacman.conf
-    grep "s/#VerbosePkgLists/VerbosePkgLists/" /mnt/etc/pacman.conf
-    grep "s/#ParallelDownloads/ParallelDownloads/" /mnt/etc/pacman.conf
-    echo "#Arch Linux Mirrors\n[extra]\nInclude = /etc/pacman.d/mirrorlist-arch\n\n[community]Include = /etc/pacman.d/mirrorlist-arch\n\n[multilib]\nInclude = /etc/pacman.d/mirrorlist-arch"
-    echo "#!/bin/bash\nrankmirrors -v -n 5 /etc/pacman.d/mirrorlist.pacnew | tee /etc/pacman.d/mirrorlist && reflector --score 5 --protocol https | tee /etc/pacman.d/mirrorlist-arch && pacman -Sc --noconfirm && pacman -Syyu --noconfirm" < /mnt/usr/bin/update-artix
-    pacman-key --init && pacman-key --populate artix
-    chmod +x /mnt/usr/bin/update-artix && /mnt/usr/bin/update-artix
-    echo "done"
 
     echo -n "Configure locale..."
-    sed "s/^#en_US/en_US/g" /mnt/etc/locale.gen
+    sed -i "s/^#en_US/en_US/g" /mnt/etc/locale.gen
     locale-gen
     echo 'export LANG="en_US.UTF-8"' > /mnt/etc/locale.conf
     echo 'export LC_COLLATE="C"' >> /mnt/etc/locale.conf
@@ -139,13 +128,40 @@ base_configure() {
     echo "127.0.0.1     localhost" > /mnt/etc/hosts
     echo "::1           localhost" >> /mnt/etc/hosts
     echo "127.0.0.1     $HOST_NAME.localdomain $HOST_NAME" >> /mnt/etc/hosts
-    echo 'hostname="$HOST_NAME"' >> /mnt/etc/conf.d/hostname
+    echo 'hostname="$HOST_NAME"' > /mnt/etc/conf.d/hostname
     echo "done"
 
     echo -n "Creating users "
     artix-chroot /mnt useradd -mG "wheel" "$USER_NAME"
     echo -n "$USER_PASSWORD\n$USER_PASSWORD" | artix-chroot /mnt passwd "$USER_NAME"
     echo -n "$ROOT_PASSWORD\n$ROOT_PASSWORD" | passwd
+    echo "done"
+
+    echo -n "Configuring Grub..."
+    sed -i "s/GRUB_TIMEOUT=[0-9]+/GRUB_TIMEOUT=0/" /mnt/etc/default/grub
+    echo "done"
+
+    echo -n "Configuring pacman settings..."
+    curl https://archlinux.org/mirrorlist/all/ -o /mnt/etc/pacman.d/mirrorlist-arch
+
+    sed -i "s/#Color/Color/" /mnt/etc/pacman.conf
+    sed -i "s/#VerbosePkgLists/VerbosePkgLists/" /mnt/etc/pacman.conf
+    sed -i "s/#ParallelDownloads/ParallelDownloads/" /mnt/etc/pacman.conf
+    echo "#Arch Linux Mirrors" >> /mnt/etc/pacman.conf 
+    echo "[extra]" >> /mnt/etc/pacman.conf
+    echo "Include = /etc/pacman.d/mirrorlist-arch" >> /mnt/etc/pacman.conf 
+    echo "" >> /mnt/etc/pacman.conf
+    echo "[community]" >> /mnt/etc/pacman.conf
+    echo "Include = /etc/pacman.d/mirrorlist-arch" >> /mnt/etc/pacman.conf 
+    echo "" >> /mnt/etc/pacman.conf
+    echo "[multilib]" >> /mnt/etc/pacman.conf 
+    echo "Include = /etc/pacman.d/mirrorlist-arch" >> /mnt/etc/pacman.conf
+    
+    artix-chroot /mnt rankmirrors -v -n 5 /etc/pacman.d/mirrorlist
+    reflector --score 5 --protocol https | tee /mnt/etc/pacman.d/mirrorlist-arch
+    artix-chroot /mnt pacman -Sc --noconfirm
+    artix-chroot /mnt pacman -Syyu --noconfirm
+    artix-chroot /mnt pacman-key --init && artix-chroot /mnt pacman-key --populate artix
     echo "done"
 }
 
@@ -164,7 +180,7 @@ setup_grub() {
 ## Finish install
 cleanup() {
     read -r -p "Would you like to reboot now? (y/n): " REBOOT_CONFIRM
-    if [[ ! "$REBOOT_CONFIRM" =~ ^(y|Y) ]]; then
+    if [[ "$REBOOT_CONFIRM" =~ ^(y|Y) ]]; then
         umount -R /mnt
         reboot
     fi 
@@ -174,6 +190,7 @@ main() {
     get_info
     partition_device
     base_install
+    base_configure
     setup_grub
     cleanup
 }

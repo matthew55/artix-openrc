@@ -6,7 +6,7 @@
 
 ## How to Run
 ```
-curl -L shorturl.at/pK045 -o install.sh
+curl -L https://bit.ly/3QgmriM -o install.sh
 chmod +x ./install.sh
 ./install.sh
 ```
