@@ -100,7 +100,7 @@ partition_efi() {
 ## Install base system
 base_install() {
     echo -n "Installing base system..."
-    basestrap /mnt base base-devel openrc elogind-openrc linux linux-firmware vim connman-openrc dhclient networkmanager networkmanager-openrc grub os-prober efibootmgr pacman-contrib
+    basestrap /mnt base base-devel openrc elogind-openrc linux linux-firmware vim connman-openrc dhclient networkmanager networkmanager-openrc grub os-prober efibootmgr pacman-contrib artix-archlinux-support
     artix-chroot /mnt rc-update add connmand && artix-chroot /mnt rc-update add NetworkManager
     echo "done"
 
@@ -128,13 +128,13 @@ base_configure() {
     echo "127.0.0.1     localhost" > /mnt/etc/hosts
     echo "::1           localhost" >> /mnt/etc/hosts
     echo "127.0.0.1     $HOST_NAME.localdomain $HOST_NAME" >> /mnt/etc/hosts
-    echo 'hostname="$HOST_NAME"' > /mnt/etc/conf.d/hostname
+    echo "hostname=\"$HOST_NAME\"" > /mnt/etc/conf.d/hostname
     echo "done"
 
     echo -n "Creating users "
     artix-chroot /mnt useradd -mG "wheel" "$USER_NAME"
-    echo -n "$USER_PASSWORD\n$USER_PASSWORD" | artix-chroot /mnt passwd "$USER_NAME"
-    echo -n "$ROOT_PASSWORD\n$ROOT_PASSWORD" | passwd
+    printf "$USER_PASSWORD\n$USER_PASSWORD" | artix-chroot /mnt passwd "$USER_NAME"
+    printf "$ROOT_PASSWORD\n$ROOT_PASSWORD" | passwd
     echo "done"
 
     echo -n "Configuring Grub..."
@@ -142,12 +142,11 @@ base_configure() {
     echo "done"
 
     echo -n "Configuring pacman settings..."
-    curl https://archlinux.org/mirrorlist/all/ -o /mnt/etc/pacman.d/mirrorlist-arch
-
     sed -i "s/#Color/Color/" /mnt/etc/pacman.conf
     sed -i "s/#VerbosePkgLists/VerbosePkgLists/" /mnt/etc/pacman.conf
     sed -i "s/#ParallelDownloads/ParallelDownloads/" /mnt/etc/pacman.conf
-    echo "#Arch Linux Mirrors" >> /mnt/etc/pacman.conf 
+    echo "" >> /mnt/etc/pacman.conf 
+    echo "# Arch Linux Mirrors" >> /mnt/etc/pacman.conf 
     echo "[extra]" >> /mnt/etc/pacman.conf
     echo "Include = /etc/pacman.d/mirrorlist-arch" >> /mnt/etc/pacman.conf 
     echo "" >> /mnt/etc/pacman.conf
@@ -156,12 +155,17 @@ base_configure() {
     echo "" >> /mnt/etc/pacman.conf
     echo "[multilib]" >> /mnt/etc/pacman.conf 
     echo "Include = /etc/pacman.d/mirrorlist-arch" >> /mnt/etc/pacman.conf
+
+    # Need to install reflector after setting up arch packages.
+    artix-chroot /mnt pacman -Syu reflector --needed --noconfirm
     
-    artix-chroot /mnt rankmirrors -v -n 5 /etc/pacman.d/mirrorlist
-    reflector --score 5 --protocol https | tee /mnt/etc/pacman.d/mirrorlist-arch
+    artix-chroot /mnt rankmirrors -v -n 5 /etc/pacman.d/mirrorlist | tee /mnt/etc/pacman.d/mirrorlist
+    artix-chroot /mnt reflector --score 5 --protocol https | tee /mnt/etc/pacman.d/mirrorlist-arch
     artix-chroot /mnt pacman -Sc --noconfirm
     artix-chroot /mnt pacman -Syyu --noconfirm
-    artix-chroot /mnt pacman-key --init && artix-chroot /mnt pacman-key --populate artix
+    artix-chroot /mnt pacman-key --init
+    artix-chroot /mnt pacman-key --populate artix
+    artix-chroot /mnt pacman-key --populate archlinux
     echo "done"
 }
 
